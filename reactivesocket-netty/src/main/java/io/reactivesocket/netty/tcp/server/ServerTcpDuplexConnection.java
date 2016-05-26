@@ -58,10 +58,15 @@ public class ServerTcpDuplexConnection implements DuplexConnection {
 
     @Override
     public void addOutput(Publisher<Frame> o, Completable callback) {
+
         o.subscribe(new Subscriber<Frame>() {
+            Subscription subscription;
+
+
             @Override
             public void onSubscribe(Subscription s) {
-                s.request(Long.MAX_VALUE);
+                subscription = s;
+                s.request(128);
             }
 
             @Override
@@ -71,6 +76,7 @@ public class ServerTcpDuplexConnection implements DuplexConnection {
                     ByteBuf byteBuf = Unpooled.wrappedBuffer(data);
                     ChannelFuture channelFuture = ctx.writeAndFlush(byteBuf);
                     channelFuture.addListener(future -> {
+                        subscription.request(1);
                         Throwable cause = future.cause();
                         if (cause != null) {
                             cause.printStackTrace();

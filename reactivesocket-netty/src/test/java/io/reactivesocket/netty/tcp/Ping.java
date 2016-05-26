@@ -57,7 +57,7 @@ public class Ping {
             }
         };
 
-        int n = 1_000_000;
+        int n = 10_000_000;
         CountDownLatch latch = new CountDownLatch(n);
         final Recorder histogram = new Recorder(3600000000000L, 3);
 

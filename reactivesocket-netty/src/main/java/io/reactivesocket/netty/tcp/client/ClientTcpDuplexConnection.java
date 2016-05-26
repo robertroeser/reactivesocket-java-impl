@@ -28,7 +28,6 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.reactivesocket.DuplexConnection;
 import io.reactivesocket.Frame;
-import io.reactivesocket.exceptions.TransportException;
 import io.reactivesocket.rx.Completable;
 import io.reactivesocket.rx.Observable;
 import io.reactivesocket.rx.Observer;
@@ -39,8 +38,7 @@ import org.reactivestreams.Subscription;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.nio.channels.ClosedChannelException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientTcpDuplexConnection implements DuplexConnection {
@@ -97,25 +95,28 @@ public class ClientTcpDuplexConnection implements DuplexConnection {
 
     @Override
     public void addOutput(Publisher<Frame> o, Completable callback) {
+
         o.subscribe(new Subscriber<Frame>() {
+            Subscription subscription;
+
             @Override
             public void onSubscribe(Subscription s) {
-                s.request(Long.MAX_VALUE);
+                subscription = s;
+                s.request(128);
             }
 
             @Override
             public void onNext(Frame frame) {
                 try {
-                    ByteBuf byteBuf = Unpooled.wrappedBuffer(frame.getByteBuffer());
+                    ByteBuffer data = frame.getByteBuffer();
+                    ByteBuf byteBuf = Unpooled.wrappedBuffer(data);
                     ChannelFuture channelFuture = channel.writeAndFlush(byteBuf);
                     channelFuture.addListener(future -> {
+                        subscription.request(1);
                         Throwable cause = future.cause();
                         if (cause != null) {
-                            if (cause instanceof ClosedChannelException) {
-                                onError(new TransportException(cause));
-                            } else {
-                                onError(cause);
-                            }
+                            cause.printStackTrace();
+                            callback.error(cause);
                         }
                     });
                 } catch (Throwable t) {
