@@ -82,7 +82,16 @@ public class ReactiveSocketServerHandler extends ChannelInboundHandlerAdapter {
             MutableDirectByteBuf mutableDirectByteBuf = new MutableDirectByteBuf(content);
             Frame from = Frame.from(mutableDirectByteBuf, 0, mutableDirectByteBuf.capacity());
             channelRegistered(ctx);
-            ServerTcpDuplexConnection connection = duplexConnections.computeIfAbsent(ctx.channel().id(), i -> {
+            final ChannelId channelId = ctx.channel().id();
+            ServerTcpDuplexConnection connection = duplexConnections.computeIfAbsent(channelId, i -> {
+                ctx
+                    .channel()
+                    .closeFuture()
+                    .addListener(future -> {
+                        logger.info("Channel {} closed, cleaning up resources", channelId.toString());
+                        duplexConnections.remove(channelId);
+                    });
+
                 logger.info("No connection found for channel id: " + i + " from host " + ctx.channel().remoteAddress().toString());
                 ServerTcpDuplexConnection c = new ServerTcpDuplexConnection(ctx);
                 ReactiveSocket reactiveSocket = DefaultReactiveSocket.fromServerConnection(c, setupHandler, leaseGovernor, throwable -> throwable.printStackTrace());
@@ -98,6 +107,7 @@ public class ReactiveSocketServerHandler extends ChannelInboundHandlerAdapter {
             content.release();
         }
     }
+
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {

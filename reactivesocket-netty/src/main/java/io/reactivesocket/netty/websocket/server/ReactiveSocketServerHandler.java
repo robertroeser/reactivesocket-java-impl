@@ -65,8 +65,17 @@ public class ReactiveSocketServerHandler extends SimpleChannelInboundHandler<Bin
         MutableDirectByteBuf mutableDirectByteBuf = new MutableDirectByteBuf(content);
         Frame from = Frame.from(mutableDirectByteBuf, 0, mutableDirectByteBuf.capacity());
         channelRegistered(ctx);
+        final ChannelId channelId = ctx.channel().id();
         ServerWebSocketDuplexConnection connection = duplexConnections.computeIfAbsent(ctx.channel().id(), i -> {
-            System.out.println("No connection found for channel id: " + i);
+            ctx
+                .channel()
+                .closeFuture()
+                .addListener(future -> {
+                    logger.info("Channel {} closed, cleaning up resources", channelId.toString());
+                    duplexConnections.remove(channelId);
+                });
+
+            logger.info("No connection found for channel id: " + i);
             ServerWebSocketDuplexConnection c = new ServerWebSocketDuplexConnection(ctx);
             ReactiveSocket reactiveSocket = DefaultReactiveSocket.fromServerConnection(c, setupHandler, leaseGovernor, throwable -> throwable.printStackTrace());
             reactiveSocket.startAndWait();

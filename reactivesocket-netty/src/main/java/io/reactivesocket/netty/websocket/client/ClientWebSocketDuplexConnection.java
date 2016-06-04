@@ -18,13 +18,21 @@ package io.reactivesocket.netty.websocket.client;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.websocketx.*;
+import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketClientHandshaker;
+import io.netty.handler.codec.http.websocketx.WebSocketClientHandshakerFactory;
+import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler;
+import io.netty.handler.codec.http.websocketx.WebSocketVersion;
 import io.reactivesocket.DuplexConnection;
 import io.reactivesocket.Frame;
 import io.reactivesocket.exceptions.TransportException;
@@ -37,7 +45,6 @@ import org.reactivestreams.Subscription;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
@@ -119,9 +126,13 @@ public class ClientWebSocketDuplexConnection implements DuplexConnection {
     @Override
     public void addOutput(Publisher<Frame> o, Completable callback) {
         o.subscribe(new Subscriber<Frame>() {
+            Subscription subscription;
+
+
             @Override
             public void onSubscribe(Subscription s) {
-                s.request(Long.MAX_VALUE);
+                subscription = s;
+                s.request(128);
             }
 
             @Override
@@ -131,6 +142,7 @@ public class ClientWebSocketDuplexConnection implements DuplexConnection {
                     BinaryWebSocketFrame binaryWebSocketFrame = new BinaryWebSocketFrame(byteBuf);
                     ChannelFuture channelFuture = channel.writeAndFlush(binaryWebSocketFrame);
                     channelFuture.addListener(future -> {
+                        subscription.request(1);
                         Throwable cause = future.cause();
                         if (cause != null) {
                             if (cause instanceof ClosedChannelException) {

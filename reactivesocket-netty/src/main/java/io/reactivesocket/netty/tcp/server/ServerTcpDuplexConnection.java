@@ -102,7 +102,7 @@ public class ServerTcpDuplexConnection implements DuplexConnection {
 
     @Override
     public void close() throws IOException {
-
+        ctx.close();
     }
 
     public String toString() {
