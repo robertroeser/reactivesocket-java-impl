@@ -45,65 +45,76 @@ public class Pong {
         Random r = new Random();
         r.nextBytes(response);
 
-        ReactiveSocketServerHandler serverHandler =
-            ReactiveSocketServerHandler.create((setupPayload, rs) -> new RequestHandler() {
+
+
+        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+        ServerBootstrap b = new ServerBootstrap();
+        b.group(bossGroup, workerGroup)
+            .channel(NioServerSocketChannel.class)
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .childHandler(new ChannelInitializer<Channel>() {
                 @Override
-                public Publisher<Payload> handleRequestResponse(Payload payload) {
-                    return new Publisher<Payload>() {
+                protected void initChannel(Channel ch) throws Exception {ReactiveSocketServerHandler serverHandler =
+                    ReactiveSocketServerHandler.create((setupPayload, rs) -> new RequestHandler() {
                         @Override
-                        public void subscribe(Subscriber<? super Payload> s) {
-                            Payload responsePayload = new Payload() {
-                                ByteBuffer data = ByteBuffer.wrap(response);
-                                ByteBuffer metadata = ByteBuffer.allocate(0);
-
-                                public ByteBuffer getData() {
-                                    return data;
-                                }
-
+                        public Publisher<Payload> handleRequestResponse(Payload payload) {
+                            return new Publisher<Payload>() {
                                 @Override
-                                public ByteBuffer getMetadata() {
-                                    return metadata;
+                                public void subscribe(Subscriber<? super Payload> s) {
+                                    Payload responsePayload = new Payload() {
+                                        ByteBuffer data = ByteBuffer.wrap(response);
+                                        ByteBuffer metadata = ByteBuffer.allocate(0);
+
+                                        public ByteBuffer getData() {
+                                            return data;
+                                        }
+
+                                        @Override
+                                        public ByteBuffer getMetadata() {
+                                            return metadata;
+                                        }
+                                    };
+
+                                    s.onNext(responsePayload);
+                                    s.onComplete();
                                 }
                             };
-
-                            s.onNext(responsePayload);
-                            s.onComplete();
                         }
-                    };
-                }
 
-                @Override
-                public Publisher<Payload> handleRequestStream(Payload payload) {
-                    Payload response =
-                        TestUtil.utf8EncodedPayload("hello world", "metadata");
-                    return RxReactiveStreams
-                        .toPublisher(Observable
-                            .range(1, 10)
-                            .map(i -> response));
-                }
+                        @Override
+                        public Publisher<Payload> handleRequestStream(Payload payload) {
+                            Payload response =
+                                TestUtil.utf8EncodedPayload("hello world", "metadata");
+                            return RxReactiveStreams
+                                .toPublisher(Observable
+                                    .range(1, 10)
+                                    .map(i -> response));
+                        }
 
-                @Override
-                public Publisher<Payload> handleSubscription(Payload payload) {
-                    Payload response =
-                        TestUtil.utf8EncodedPayload("hello world", "metadata");
-                    return RxReactiveStreams
-                        .toPublisher(Observable
-                            .range(1, 10)
-                            .map(i -> response));
-                }
+                        @Override
+                        public Publisher<Payload> handleSubscription(Payload payload) {
+                            Payload response =
+                                TestUtil.utf8EncodedPayload("hello world", "metadata");
+                            return RxReactiveStreams
+                                .toPublisher(Observable
+                                    .range(1, 10)
+                                    .map(i -> response));
+                        }
 
-                @Override
-                public Publisher<Void> handleFireAndForget(Payload payload) {
-                    return Subscriber::onComplete;
-                }
+                        @Override
+                        public Publisher<Void> handleFireAndForget(Payload payload) {
+                            return Subscriber::onComplete;
+                        }
 
-                @Override
-                public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> inputs) {
-                    Observable<Payload> observable =
-                        RxReactiveStreams
-                            .toObservable(inputs)
-                            .map(input -> input);
-                    return RxReactiveStreams.toPublisher(observable);
+                        @Override
+                        public Publisher<Payload> handleChannel(Payload initialPayload, Publisher<Payload> inputs) {
+                            Observable<Payload> observable =
+                                RxReactiveStreams
+                                    .toObservable(inputs)
+                                    .map(input -> input);
+                            return RxReactiveStreams.toPublisher(observable);
 
 //                    return outputSubscriber -> {
 //                        inputs.subscribe(new Subscriber<Payload>() {
@@ -145,24 +156,14 @@ public class Pong {
 //                            }
 //                        });
 //                    };
-                }
+                        }
 
-                @Override
-                public Publisher<Void> handleMetadataPush(Payload payload) {
-                    return null;
-                }
-            });
+                        @Override
+                        public Publisher<Void> handleMetadataPush(Payload payload) {
+                            return null;
+                        }
+                    });
 
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
-
-        ServerBootstrap b = new ServerBootstrap();
-        b.group(bossGroup, workerGroup)
-            .channel(NioServerSocketChannel.class)
-            .handler(new LoggingHandler(LogLevel.INFO))
-            .childHandler(new ChannelInitializer<Channel>() {
-                @Override
-                protected void initChannel(Channel ch) throws Exception {
                     ChannelPipeline pipeline = ch.pipeline();
                     pipeline.addLast(new HttpServerCodec());
                     pipeline.addLast(new HttpObjectAggregator(64 * 1024));

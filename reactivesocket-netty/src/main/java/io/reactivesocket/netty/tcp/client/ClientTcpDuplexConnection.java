@@ -115,10 +115,12 @@ public class ClientTcpDuplexConnection implements DuplexConnection {
                     channelFuture.addListener(future -> {
                         subscription.request(1);
                         Throwable cause = future.cause();
-                        if (cause instanceof ClosedChannelException) {
-                            onError(new TransportException(cause));
-                        } else {
-                            onError(cause);
+                        if (cause != null) {
+                            if (cause instanceof ClosedChannelException) {
+                                onError(new TransportException(cause));
+                            } else {
+                                onError(cause);
+                            }
                         }
                     });
                 } catch (Throwable t) {

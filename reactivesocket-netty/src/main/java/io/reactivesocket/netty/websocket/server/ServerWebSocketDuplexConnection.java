@@ -29,6 +29,8 @@ import io.reactivesocket.rx.Observer;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,6 +38,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ServerWebSocketDuplexConnection implements DuplexConnection {
+    private static final Logger logger = LoggerFactory.getLogger(ServerWebSocketDuplexConnection.class);
+
     private final CopyOnWriteArrayList<Observer<Frame>> subjects;
 
     private final ChannelHandlerContext ctx;
@@ -80,7 +84,7 @@ public class ServerWebSocketDuplexConnection implements DuplexConnection {
                         subscription.request(1);
                         Throwable cause = future.cause();
                         if (cause != null) {
-                            cause.printStackTrace();
+                            logger.error(cause.getMessage(), cause);
                             callback.error(cause);
                         }
                     });
