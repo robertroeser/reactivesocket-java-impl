@@ -40,6 +40,7 @@ import org.reactivestreams.Subscription;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientTcpDuplexConnection implements DuplexConnection {
@@ -114,9 +115,10 @@ public class ClientTcpDuplexConnection implements DuplexConnection {
                     channelFuture.addListener(future -> {
                         subscription.request(1);
                         Throwable cause = future.cause();
-                        if (cause != null) {
-                            cause.printStackTrace();
-                            callback.error(cause);
+                        if (cause instanceof ClosedChannelException) {
+                            onError(new TransportException(cause));
+                        } else {
+                            onError(cause);
                         }
                     });
                 } catch (Throwable t) {

@@ -88,11 +88,11 @@ public class ReactiveSocketServerHandler extends ChannelInboundHandlerAdapter {
                     .channel()
                     .closeFuture()
                     .addListener(future -> {
-                        logger.info("Channel {} closed, cleaning up resources", channelId.toString());
+                        logger.debug("Channel {} closed, cleaning up resources", channelId.toString());
                         duplexConnections.remove(channelId);
                     });
 
-                logger.info("No connection found for channel id: " + i + " from host " + ctx.channel().remoteAddress().toString());
+                logger.debug("No connection found for channel id: " + i + " from host " + ctx.channel().remoteAddress().toString());
                 ServerTcpDuplexConnection c = new ServerTcpDuplexConnection(ctx);
                 ReactiveSocket reactiveSocket = DefaultReactiveSocket.fromServerConnection(c, setupHandler, leaseGovernor, throwable -> throwable.printStackTrace());
                 reactiveSocket.startAndWait();
